@@ -1,0 +1,10 @@
+{
+  "name": "d3-canvas-scatterplot",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "express": "^4.16.3",
+    "express-http-proxy": "^1.2.0"
+  },
+  "proxy": "http://localhost:3030"
+}
