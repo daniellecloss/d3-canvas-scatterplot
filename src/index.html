@@ -1,114 +1,123 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
-<style>
-
-body {
-  font: 10px sans-serif;
-}
-
-.axis path,
-.axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: crispEdges;
-}
-
-.dot {
-  stroke: #000;
-}
-
-</style>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        text {
+            font: 10px sans-serif;
+        }
+        .plot {
+            position: absolute;
+        }
+        #plot-canvas {
+            z-index: 2;
+        }
+        #axis-svg {
+            z-index: 1;
+        }
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #000;
+            shape-rendering: crispEdges;
+        }
+        .tick line{
+            opacity: 0.2;
+        }
+    </style>
+</head>
 <body>
-<script src="js/d3.v3.js"></script>
+    <svg id="axis-svg" class="plot"></svg>
+    <canvas id="plot-canvas" class="plot"></canvas>
+</body>
+<script src="js/d3.v3.js" charset="utf-8"></script>
 <script>
+    // constants
+    var pointRadius = 2;
 
-var margin = {top: 20, right: 20, bottom: 30, left: 40},
-    width = 960 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
+    // define all size variables
+    var fullWidth = 1100;
+    var fullHeight = 700;
+    var margin = {top: 10, right: 10, bottom: 30, left: 30};
+    var width = fullWidth - margin.left - margin.right;
+    var height = fullHeight - margin.top - margin.bottom;
 
-var x = d3.scale.linear()
-    .range([0, width]);
-
-var y = d3.scale.linear()
-    .range([height, 0]);
-
-var color = d3.scale.category10();
-
-var xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom");
-
-var yAxis = d3.svg.axis()
-    .scale(y)
-    .orient("left");
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 d3.tsv("data/data.tsv", function(error, data) {
   if (error) throw error;
 
-  data.forEach(function(d) {
-    d.sepalLength = +d.sepalLength;
-    d.sepalWidth = +d.sepalWidth;
-  });
+    // the canvas is shifted by 1px to prevent any artefacts
+    // when the svg axis and the canvas overlap
+    var canvas = d3.select("#plot-canvas")
+        .attr("width", width - 1)
+        .attr("height", height - 1)
+        .style("transform", "translate(" + (margin.left + 1) +
+            "px" + "," + (margin.top + 1) + "px" + ")");
 
-  x.domain(d3.extent(data, function(d) { return d.sepalWidth; })).nice();
-  y.domain(d3.extent(data, function(d) { return d.sepalLength; })).nice();
+    var svg = d3.select("#axis-svg")
+        .attr("width", fullWidth)
+        .attr("height", fullHeight)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," +
+            margin.top + ")");
 
-  svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis)
-    .append("text")
-      .attr("class", "label")
-      .attr("x", width)
-      .attr("y", -6)
-      .style("text-anchor", "end")
-      .text("Sepal Width (cm)");
+    // ranges, scales, axis, objects
+    var xRange = d3.extent(data, function(d) { return d.x });
+    var yRange = d3.extent(data, function(d) { return d.y });
 
-  svg.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-    .append("text")
-      .attr("class", "label")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 6)
-      .attr("dy", ".71em")
-      .style("text-anchor", "end")
-      .text("Sepal Length (cm)")
+    var xScale = d3.scale.linear()
+        .domain([xRange[0], xRange[1]])
+        .range([0, width]);
 
-  svg.selectAll(".dot")
-      .data(data)
-    .enter().append("circle")
-      .attr("class", "dot")
-      .attr("r", 3.5)
-      .attr("cx", function(d) { return x(d.sepalWidth); })
-      .attr("cy", function(d) { return y(d.sepalLength); })
-      .style("fill", function(d) { return color(d.species); });
+    var yScale = d3.scale.linear()
+        .domain([yRange[0], yRange[1]])
+        .range([height, 0]);
 
-  var legend = svg.selectAll(".legend")
-      .data(color.domain())
-    .enter().append("g")
-      .attr("class", "legend")
-      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+    var xAxis = d3.svg.axis()
+        .scale(xScale)
+        .innerTickSize(-height)
+        .outerTickSize(0)
+        .tickPadding(10)
+        .orient('bottom');
+    var yAxis = d3.svg.axis()
+        .scale(yScale)
+        .innerTickSize(-width)
+        .outerTickSize(0)
+        .orient('left');
 
-  legend.append("rect")
-      .attr("x", width - 18)
-      .attr("width", 18)
-      .attr("height", 18)
-      .style("fill", color);
+    // append x-axis, y-axis
+    var xAxisSvg = svg.append('g')
+        .attr('class', 'x axis')
+        .attr('transform', 'translate(0,' + height + ')')
+        .call(xAxis);
+    var yAxisSvg = svg.append('g')
+        .attr('class', 'y axis')
+        .call(yAxis);
 
-  legend.append("text")
-      .attr("x", width - 24)
-      .attr("y", 9)
-      .attr("dy", ".35em")
-      .style("text-anchor", "end")
-      .text(function(d) { return d; });
+    // get the canvas drawing context
+    var context = canvas.node().getContext('2d');
+    draw();
+
+    // the draw function draws the full dataset
+    function draw(index) {
+        var active;
+        context.clearRect(0, 0, fullWidth, fullHeight);
+        context.fillStyle = 'steelblue';
+
+        data.forEach(function(point) {
+            drawPoint(point, pointRadius);
+        });
+        context.closePath();
+    }
+
+    function drawPoint(point, r) {
+        var cx = xScale(point.x);
+        var cy = yScale(point.y);
+        context.beginPath();
+        context.arc(cx, cy, r, 0, 2 * Math.PI);
+        context.fill();
+    }
 
 });
-
 </script>
+</html>
